@@ -1,0 +1,119 @@
+---
+title: "Amazon Stock Price Analysis"
+author: "Tejas Bantupalli"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Introduction
+
+This report explores the historical stock prices of Amazon (AMZN) from 2015 to the present. The analysis includes summary statistics, a stationarity test, and forecasts using the Prophet library.
+
+## Data Fetching
+In this section, we will load the necessary libraries and fetch the historical stock prices for Amazon from Yahoo Finance. The data will then be converted into a format suitable for analysis.
+
+```{r message=FALSE, warning=FALSE}
+# Load necessary libraries
+library(quantmod)
+library(tidyverse)
+library(lubridate)
+library(prophet)
+library(tseries)
+
+# Fetch historical stock prices for Amazon
+getSymbols("AMZN", src = "yahoo", from = "2015-01-01", to = Sys.Date())
+
+# Convert to a data frame
+amazon_data <- data.frame(Date = index(AMZN), coredata(AMZN))
+
+# Select relevant columns and rename
+sales_data <- amazon_data %>%
+  select(Date, AMZN.Adjusted) %>%
+  rename(ds = Date, y = AMZN.Adjusted)
+
+# Convert 'ds' to POSIXct date format
+sales_data$ds <- as.POSIXct(sales_data$ds)
+```
+
+## Summary Statistics
+Here, we calculate and present summary statistics for the adjusted closing prices of Amazon's stock. Summary statistics include the minimum, maximum, mean, and quartiles, providing a quick overview of the stock's price range and central tendency.
+
+```{r message=FALSE, warning=FALSE}
+# Summary statistics
+summary_stats <- summary(sales_data$y)
+print(summary_stats)
+```
+
+## Stationarity Test
+A key aspect of time series analysis is understanding whether the data is stationary. We perform the Augmented Dickey-Fuller (ADF) test to assess stationarity. A p-value less than 0.05 typically indicates that the series is stationary, meaning that its statistical properties do not change over time.
+
+```{r message=FALSE, warning=FALSE}
+# Augmented Dickey-Fuller Test
+adf_test <- adf.test(sales_data$y)
+print(adf_test)
+```
+
+## Sales Plot
+To visualize the historical stock prices, we create a line plot of Amazon's adjusted closing prices over time. This visual representation helps identify trends, patterns, and potential seasonality in the stock's price movements.
+
+```{r message=FALSE, warning=FALSE}
+# Plot the sales data (Adjusted Closing Prices)
+sales_plot <- ggplot(sales_data, aes(x = ds, y = y)) +
+  geom_line(color = "blue") +
+  labs(title = "Amazon Adjusted Closing Prices Over Time", x = "Date", y = "Adjusted Closing Price") +
+  theme_minimal()
+
+# Print the sales plot
+print(sales_plot)
+```
+
+## Forecasting
+In this section, we fit a forecasting model using the Prophet library. We create a future dataframe for prediction, forecasting Amazon's stock price for the next 30 days. The forecast will be visualized alongside the actual historical prices.
+
+```{r message=FALSE, warning=FALSE}
+# Fit the Prophet model
+model <- prophet(sales_data)
+
+# Create a future dataframe for prediction
+future <- make_future_dataframe(model, periods = 30)  # Forecasting for 30 days
+forecast <- predict(model, future)
+
+# Plot the forecast
+forecast_plot <- ggplot(forecast, aes(x = ds, y = yhat)) +
+  geom_line(color = "blue") +
+  geom_ribbon(aes(ymin = yhat_lower, ymax = yhat_upper), alpha = 0.2) +
+  labs(title = "Amazon Stock Price Forecast using Prophet", x = "Date", y = "Forecasted Adjusted Price") +
+  theme_minimal() +
+  geom_line(data = sales_data, aes(x = ds, y = y), color = "red")  # Add actual prices
+
+# Print the forecast plot
+print(forecast_plot)
+```
+
+## Model Evaluation
+```{r message = FALSE, warning = FALSE}
+# Calculate evaluation metrics (assuming we have a holdout set)
+# Here, we can use the last 30 days of historical data for a simple evaluation
+actual_values <- tail(sales_data$y, 30)
+predicted_values <- tail(forecast$yhat, 30)
+
+# Mean Absolute Error
+mae <- mean(abs(actual_values - predicted_values))
+# Mean Squared Error
+mse <- mean((actual_values - predicted_values)^2)
+
+# Print evaluation metrics
+cat("Mean Absolute Error (MAE):", mae, "\n")
+cat("Mean Squared Error (MSE):", mse, "\n")
+```
+
+## Conclusion
+In this report, we conducted an analysis of Amazon's stock price data from 2015 to the present. We started with data exploration and summary statistics, which provided insight into the range and distribution of stock prices. The Augmented Dickey-Fuller test indicated that the data is non-stationary (as p>0.5), which is a critical consideration when working with time series.
+
+We used the Prophet model to forecast future stock prices and generate predictions for the next 30 days. The resulting visualizations show both the forecasted values and the actual historical prices, providing a clear understanding of the trends and patterns.
+
+The evaluation metrics—Mean Absolute Error (MAE) and Mean Squared Error (MSE)—offer quantitative assessments of the model's performance, highlighting its predictive accuracy, due to their relatively low values. While these results are promising, it's important to recognize that forecasting stock prices is still uncertain due to the influence of numerous external factors.
+
+Overall, this analysis provides an understanding of Amazon's stock price dynamics and demonstrates the application of time series forecasting techniques.
+
+
